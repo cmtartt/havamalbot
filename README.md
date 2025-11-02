@@ -10,12 +10,18 @@ Run `node index.js` or as appropriate in your environment and enjoy!
 
 Usage:
 
-havamal for random stanza
+!havamal for random stanza
+
 !havamal <number> for a stanza
+
 !havamal <number> <translation> for a specific translation!
 
 Valid translations:
+
 bray
+
 bellows
+
 pettit
+
 icelandic
