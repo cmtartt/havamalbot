@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "discord.js": "^14.24.2",
+    "mysql2": "^3.16.1",
     "react-native-cas": "^4.5.4"
   }
 }

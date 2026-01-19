@@ -3,6 +3,8 @@ import * as icelandicJson from './assets/icelandic.json';
 import * as brayJson from './assets/bray.json';
 import * as petitJson from './assets/petit.json';
 */
+
+const { mysql } = require('mysql2/promise');
 const { Client, Events, GatewayIntentBits } = require('discord.js');
 
 const bellowsJson = require('./assets/bellows.json');
