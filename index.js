@@ -4,23 +4,43 @@ import * as brayJson from './assets/bray.json';
 import * as petitJson from './assets/petit.json';
 */
 
-const { mysql } = require('mysql2/promise');
-const { Client, Events, GatewayIntentBits } = require('discord.js');
+import mysql from 'mysql2/promise';
+import { Client, Events, GatewayIntentBits } from 'discord.js';
 
+import bellowsJson from './assets/bellows.json' with { type: 'json'};
+import brayJson from './assets/bray.json' with { type: 'json'};
+import pettitJson from './assets/petit.json' with { type: 'json'};
+import icelandicJson from './assets/icelandic.json' with { type: 'json'};
+import thorpeJson from './assets/thorpe.json' with { type: 'json'};
+import hollanderJson from './assets/hollander.json' with { type: 'json'};
+
+
+/* 
 const bellowsJson = require('./assets/bellows.json');
 const brayJson = require('./assets/bray.json');
 const pettitJson = require('./assets/petit.json');
 const icelandicJson = require('./assets/icelandic.json');
 const thorpeJson = require('./assets/thorpe.json');
 const hollanderJson = require('./assets/hollander.json');
-
+*/ 
 //
 
 console.log(process.env);
 
 console.log(pettitJson.data[126].text);
 
+
+// Create the connection to database
+const connection = await mysql.createConnection({
+  host: process.env.HAVAMALBOT_MYSQL_HOST,
+  user: process.env.HAVAMALBOT_MYSQL_USER,
+  password: process.env.HAVAMALBOT_MYSQL_PASSWORD,
+  database: process.env.HAVAMALBOT_MYSQL_DB,
+});
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+
+
 
 client.once(Events.ClientReady, (readyClient) => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
@@ -33,97 +53,230 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on('messageCreate', async message => {
 
-	function magic(arg) {
-	    switch(arg) {
-		case 1:
-		message.channel.send("https://tenor.com/view/shrimp-as-that-clash-royale-hee-hee-hee-haw-gif-25054781");
-		return;
-		break;
-	    }
-	}
+        async function handleConfig(message) {             
+            let guild = await client.guilds.fetch(message.guild.id);
+            let user = await guild.members.fetch(message.author.id);            
+            
+            // is admin user?
+            let isAdminUser = (user.permissions.bitfield & 0x8n) > 0n;
+            
+            console.log(isAdminUser);
+            
+            if(!isAdminUser) { 
+                return;
+            }
+            
+            message.author.send("Configuring havamalbot with message: " + message.content);
+            const messageSplits = message.content.toLowerCase().split(' ');
+            console.log(messageSplits);
+            const configType = messageSplits[1];
+            if(configType.toLowerCase() == 'set') { 
+                message.author.send(`Setting config ${messageSplits[2]} with value ${messageSplits[3]}`);
+                setConfigValue(messageSplits, guild.id);
+            } else if(configType.toLowerCase() == 'unset') { 
+                message.author.send(`Removing config ${messageSplits[2]}`);
+                unsetConfigValue(messageSplits, guild.id);
+            } else { 
+                message.author.send("Invalid option, valid options are `set` and `unset`");
+            }            
+        }
+
+        async function setConfigValue(messageSplits, guildId) {
+            console.log("Setting value from splits: ");
+            console.log(messageSplits);
+            
+            // Strips <# and > from config value
+
+            if(messageSplits[3].indexOf('<#') == 0) { 
+                messageSplits[3] = messageSplits[3].slice(2,-1);
+            }
+
+            try {
+                const [results, fields] = await connection.query(
+                    'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', [messageSplits[2], guildId]
+                );
+                console.log(results);
+                if(results.length == 0) { 
+                    const [results, fields] = await connection.query(
+                        'INSERT INTO `configs` (`key`, `value`, `guildId`) VALUES (?, ?, ?)', [messageSplits[2], messageSplits[3], guildId]
+                    );
+                } else { 
+                    const [results, fields] = await connection.query(
+                        'UPDATE `configs` SET `value` = ? where `key` = ? AND `guildId` = ?', [messageSplits[3], messageSplits[2], guildId]
+                    );
+                }
+
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        async function unsetConfigValue(messageSplits, guildId) { 
+            console.log("Unsetting value from splits: ");
+            console.log(messageSplits);
+        }
+
 
         // Ignore messages from other bots to prevent infinite loops
         if (message.author.bot) return;
+
+        if (message.content.toLowerCase().indexOf("!havamalconfig") == 0) {
+            handleConfig(message);                        
+            return;        
+        }
 
         if (message.content.toLowerCase().indexOf("!havamal") == 0) {
             console.log("Begin havamal parsing");
             const messageSplits = message.content.toLowerCase().split(' ');
             console.log(messageSplits);
             // assume first split is command, 2nd is
-            var stanzaId = Math.floor(Math.random() * 164);
-   	    var translation = 'pettit';
-	    var hasStanzaOverride = false;
-	    var hasTranslationOverride = false;
+            var stanzaId = Math.floor(Math.random() * 163);
+            var translation = 'pettit';
+            var hasStanzaOverride = false;
+            var hasTranslationOverride = false;
 
-	    for(split in messageSplits) {
-	    	console.log(split);
-		try {
+            for(let split in messageSplits) {
+                if(split == 0) { 
+                    continue;
+                }
+                console.log(split);
+                try {
                     const parsedInt = parseInt(messageSplits[split], 10) - 1;
-		    if(isNaN(parsedInt)) {
-			translation = messageSplits[split]
-		    	hasTranslationOverride = true;
-		    } else {
-			stanzaId = parsedInt;
-		    	hasStanzaOverride = true;
-		    }
+                    if(isNaN(parsedInt)) {
+                        translation = messageSplits[split]
+                        hasTranslationOverride = true;
+                    } else {
+                        stanzaId = parsedInt;
+                        hasStanzaOverride = true;
+                    }
                 } catch(e) {
                     console.log(e);
                     message.channel.send("Invalid stanza");
                     return;
                 }
-	    }
-
-            if(hasStanzaOverride) {
-                if(stanzaId > 164 || stanzaId < 0) {
-                    message.channel.send("Invalid stanza");
-                    return;
-                }
-
-                console.log("DEBUG: " + stanzaId);
             }
+        }
+        console.log("Stanza? " + stanzaId);
+        console.log("Translation? " + translation);
+        sendHavamal(translation, stanzaId, message.channel);
+    });
+
+    function magic(arg, channel) {
+        switch(arg) {
+            case 1:
+                channel.send("https://tenor.com/view/shrimp-as-that-clash-royale-hee-hee-hee-haw-gif-25054781");
+                return;                
+        }
+    }
+    
+    function sendHavamal(translation, stanzaId, channel) {     
+            console.log(stanzaId);
+
+            if(stanzaId > 163 || stanzaId < 0) {
+                channel.send("Invalid stanza");
+                return;
+            }
+
+            console.log("DEBUG: " + stanzaId);
+        
 
             var stanzaText = '';
             var attestationText = '';
 
-            if(hasTranslationOverride) {
-                switch(translation) {
-                    case 'bray':
-                        stanzaText = brayJson.data[stanzaId].text;
-                        attestationText = "Bray's Translation";
-                        break;
-                    case 'bellows':
-                        stanzaText = bellowsJson.data[stanzaId].text;
-                        attestationText = "Bellows's Translation";
-                        break;
-                    case 'icelandic':
-                        stanzaText = icelandicJson.data[stanzaId].text;
-                        attestationText = "Icelandic Text";
-                        break;
-		    case 'thorpe':
-			stanzaText = thorpeJson.data[stanzaId].text;
-			attestationText = "Thorpe's Translation";
-			break;
-		    case 'hollander':
-			stanzaText = hollanderJson.data[stanzaId].text;
-			attestationText = "Hollander's Translation";
-			break;
-		    case 'woolsey':
-			magic(1);
-			return;
-			break;
-                    case 'pettit':
-                    default:
-                        stanzaText = pettitJson.data[stanzaId].text;
-                        attestationText = "Pettit's Translation";
-                        break;
-                }
+        
+            switch(translation) {
+                case 'bray':
+                    stanzaText = brayJson.data[stanzaId].text;
+                    attestationText = "Bray's Translation";
+                    break;
+                case 'bellows':
+                    stanzaText = bellowsJson.data[stanzaId].text;
+                    attestationText = "Bellows's Translation";
+                    break;
+                case 'icelandic':
+                    stanzaText = icelandicJson.data[stanzaId].text;
+                    attestationText = "Icelandic Text";
+                    break;
+                case 'thorpe':
+                    stanzaText = thorpeJson.data[stanzaId].text;
+                    attestationText = "Thorpe's Translation";
+                    break;
+                case 'hollander':
+                    stanzaText = hollanderJson.data[stanzaId].text;
+                    attestationText = "Hollander's Translation";
+                    break;
+                case 'woolsey':
+                    magic(1, channel);
+                    return;                        
+                case 'pettit':
+                    stanzaText = pettitJson.data[stanzaId].text;
+                    attestationText = "Pettit's Translation";
+                    break;
+                default:
+                    channel.send("Invalid translation");
+                    return;
+                    
             }
+        
 
             stanzaText += "-- Havamal, stanza " + (stanzaId + 1) + ` (${attestationText})`;
 
             console.log("Sending stanzaId: " + stanzaId);
-            message.channel.send(stanzaText);
+            channel.send(stanzaText);
         }
-    });
+    
+console.log("Fack");
+await client.login(process.env.BOT_TOKEN);
+console.log("Bollocks");
+function getNextMidnight() { 
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0); // Set to the start of tomorrow
 
-client.login(process.env.BOT_TOKEN);
+    const now = new Date();
+
+    const nextMidnight = midnight.getTime() - now.getTime(); // Returns milliseconds
+
+    return nextMidnight;
+}
+
+async function setNextSOTDFire(time) { 
+    setTimeout(async () => { 
+        console.log("In setTimeout");
+        const [results, fields] = await connection.query(
+            'SELECT * FROM `configs` WHERE (`key` = ?)', ['hotdtime']
+        );
+        
+        for(let entry in results) {                         
+            const [channelResults, channelFields] = await connection.query(
+                'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', ['hotdchannel', results[entry].guildId]
+            );            
+            const [translationResults, translationFields] = await connection.query(
+                'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', ['hotdtranslation', results[entry].guildId]
+            );            
+
+            var translation = 'pettit';
+            if(translationResults.length > 0) { 
+                translation = translationResults[0].value;
+            }
+            const hotdChannel = await client.channels.fetch(channelResults[0].value);            
+            const stanzaId = Math.floor(Math.random() * 164);
+            const nextHour = parseInt(results[entry].value.slice(0,2), 10);
+            const nextMinute = parseInt(results[entry].value.slice(3,5), 10);
+            const fireOn = new Date();
+            fireOn.setDate(fireOn.getDate() + 1);
+            fireOn.setHours(nextHour, nextMinute, 0, 0, 0);
+            
+            const now = new Date();
+            const fireTime = fireOn.getTime() - now.getTime();
+            console.log(fireOn);
+            console.log(fireTime);
+            setTimeout(() => {
+                sendHavamal(translation, stanzaId, hotdChannel);
+            }, fireTime);            
+        }
+        const nextMidnight = getNextMidnight();
+        setNextSOTDFire(nextMidnight);        
+    }, time)
+}
+
+// setNextSOTDFire(getNextMidnight());

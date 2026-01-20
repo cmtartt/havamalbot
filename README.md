@@ -1,8 +1,8 @@
-Havamal Bot 1.0.0 - Powered by the [Digital Havamal](https://everheartempire.com/digital-havamal)
+Havamal Bot 1.1.1 - Powered by the [Digital Havamal](https://everheartempire.com/digital-havamal)
 
 ------
 
-To configure: add an environment variable(either through .env or through the shell's local environment variables) named `BOT_TOKEN` 
+To configure: add an environment variables in .env(or through the shell's local environment variables) 
 
 Run `node index.js` or as appropriate in your environment and enjoy! 
 
@@ -25,3 +25,7 @@ bellows
 pettit
 
 icelandic
+
+hollander
+
+thorpe
