@@ -225,9 +225,9 @@ client.on('messageCreate', async message => {
             channel.send(stanzaText);
         }
     
-console.log("Fack");
+
 await client.login(process.env.BOT_TOKEN);
-console.log("Bollocks");
+
 function getNextMidnight() { 
     const midnight = new Date();
     midnight.setHours(24, 0, 0, 0); // Set to the start of tomorrow
