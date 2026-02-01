@@ -252,10 +252,11 @@ async function handleHotd() {
         const nextHour = parseInt(results[entry].value.slice(0,2), 10);
         const nextMinute = parseInt(results[entry].value.slice(3,5), 10);
         const fireOn = new Date();
-        const utcOffset = fireOn.getTimezoneOffset()        
-        fireOn.setHours(nextHour, nextMinute + utcOffset, 0, 0, 0);        
+        const utcOffset = fireOn.getTimezoneOffset();
+        fireOn.setDate(fireOn.getDate() + 1);
+        fireOn.setHours(nextHour, nextMinute - utcOffset, 0, 0, 0);        
         const now = new Date();
-        const fireTime = now.getTime() - fireOn.getTime();
+        const fireTime = fireOn.getTime() - now.getTime();
         console.log("Scheduling SotD for guildId: " + results[entry].guildId + " At " + results[entry].value + " To channelId: " + channelResults[0].value + " with translation: " + translation + " Fire time: " + fireTime);
         setTimeout((timeoutTranslation, timeoutStanzaId, timeoutHotdChannel) => {
             sendHavamal(timeoutTranslation, timeoutStanzaId, timeoutHotdChannel);
