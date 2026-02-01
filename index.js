@@ -201,17 +201,14 @@ await client.login(process.env.BOT_TOKEN);
 
 function getNextMidnight() { 
     var utcNow = new Date();
-    var utcMidnightTime = Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(),
-                utcNow.getUTCDate(), utcNow.getUTCHours(),
-                utcNow.getUTCMinutes(), utcNow.getUTCSeconds());
-
-    var utcMidnight = new Date(utcMidnightTime);
-    const utcOffset = utcMidnight.getTimezoneOffset();
     
-    utcMidnight.setDate(utcMidnight.getUTCDate() + 1);
-    utcMidnight.setHours(0, (utcOffset * -1), 0, 0); // Set to the start of tomorrow
+    const utcOffset = utcNow.getTimezoneOffset();
+    const tomorrowMidnight = new Date(); 
     
-    const nextMidnight = utcMidnight.getTime() - utcNow.getTime() ; // Returns milliseconds
+    tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
+    tomorrowMidnight.setHours(24, (utcOffset * -1), 0, 0); 
+    
+    const nextMidnight = tomorrowMidnight.getTime() - utcNow.getTime(); // Returns milliseconds
     
     return nextMidnight;
 }
@@ -250,7 +247,6 @@ async function handleHotd() {
             translation = translationResults[0].value;
         }
 
-        console.log("Scheduling SotD for guildId: " + results[entry].guildId + " At " + results[entry].value + " To channelId: " + channelResults[0].value + " with translation: " + translation);
         const hotdChannel = await client.channels.fetch(channelResults[0].value);            
         const stanzaId = Math.floor(Math.random() * 164);
         const nextHour = parseInt(results[entry].value.slice(0,2), 10);
@@ -260,7 +256,7 @@ async function handleHotd() {
         fireOn.setHours(nextHour, nextMinute + utcOffset, 0, 0, 0);        
         const now = new Date();
         const fireTime = now.getTime() - fireOn.getTime();
-        console.log(fireTime);
+        console.log("Scheduling SotD for guildId: " + results[entry].guildId + " At " + results[entry].value + " To channelId: " + channelResults[0].value + " with translation: " + translation + " Fire time: " + fireTime);
         setTimeout((timeoutTranslation, timeoutStanzaId, timeoutHotdChannel) => {
             sendHavamal(timeoutTranslation, timeoutStanzaId, timeoutHotdChannel);
         }, fireTime, translation, stanzaId, hotdChannel);            
