@@ -265,4 +265,3 @@ async function handleHotd() {
 }
 
 setNextSOTDFire(getNextMidnight());
-handleHotd();
