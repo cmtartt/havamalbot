@@ -200,21 +200,28 @@ client.on('messageCreate', async message => {
 await client.login(process.env.BOT_TOKEN);
 
 function getNextMidnight() { 
-    var utcNow = new Date();
+    const now = new Date();
     
-    const utcOffset = utcNow.getTimezoneOffset();
-    const tomorrowMidnight = new Date(); 
+    // Get current UTC time components
+    const utcYear = now.getUTCFullYear();
+    const utcMonth = now.getUTCMonth();
+    const utcDate = now.getUTCDate();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    const utcSeconds = now.getUTCSeconds();
+    const utcMilliseconds = now.getUTCMilliseconds();
     
-    tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
-    tomorrowMidnight.setHours(24, (utcOffset * -1), 0, 0); 
+    // Create a Date object for next midnight UTC (00:00:00 UTC tomorrow)
+    const nextMidnightUTC = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0, 0));
     
-    const nextMidnight = tomorrowMidnight.getTime() - utcNow.getTime(); // Returns milliseconds
+    // Calculate milliseconds until next midnight UTC
+    const millisecondsUntilMidnight = nextMidnightUTC.getTime() - now.getTime();
     
-    return nextMidnight;
+    return millisecondsUntilMidnight;
 }
 
 async function setNextSOTDFire(time) { 
-    console.log("Scheduling Stanza of the Day instances");
+    console.log("Scheduling Stanza of the Day instances. Will fire in " + time + " ms");
     setTimeout(async () => { 
         await handleHotd();
         const nextMidnight = getNextMidnight();
@@ -223,45 +230,78 @@ async function setNextSOTDFire(time) {
 }
 
 async function handleHotd() { 
-    const connection = await mysql.createConnection({
-        host: process.env.HAVAMALBOT_MYSQL_HOST,
-        user: process.env.HAVAMALBOT_MYSQL_USER,
-        password: process.env.HAVAMALBOT_MYSQL_PASSWORD,
-        database: process.env.HAVAMALBOT_MYSQL_DB,
-    });
-    const [results, fields] = await connection.query(
-        'SELECT * FROM `configs` WHERE (`key` = ?)', ['hotdtime']
-    );
-    
-    for(let entry in results) {                       
+    let connection;
+    try {
+        connection = await mysql.createConnection({
+            host: process.env.HAVAMALBOT_MYSQL_HOST,
+            user: process.env.HAVAMALBOT_MYSQL_USER,
+            password: process.env.HAVAMALBOT_MYSQL_PASSWORD,
+            database: process.env.HAVAMALBOT_MYSQL_DB,
+        });
+        const [results, fields] = await connection.query(
+            'SELECT * FROM `configs` WHERE (`key` = ?)', ['hotdtime']
+        );
         
-        const [channelResults, channelFields] = await connection.query(
-            'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', ['hotdchannel', results[entry].guildId]
-        );            
-        const [translationResults, translationFields] = await connection.query(
-            'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', ['hotdtranslation', results[entry].guildId]
-        );            
+        for(let entry in results) {                       
+            
+            const [channelResults, channelFields] = await connection.query(
+                'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', ['hotdchannel', results[entry].guildId]
+            );
+            
+            // Skip if no channel configured
+            if (!channelResults || channelResults.length === 0) {
+                console.log("No hotdchannel configured for guildId: " + results[entry].guildId);
+                continue;
+            }
+            
+            const [translationResults, translationFields] = await connection.query(
+                'SELECT * FROM `configs` WHERE `key` = ? AND `guildId` = ?', ['hotdtranslation', results[entry].guildId]
+            );            
 
-        var translation = 'pettit';
-        if(translationResults.length > 0) { 
-            translation = translationResults[0].value;
+            var translation = 'pettit';
+            if(translationResults.length > 0) { 
+                translation = translationResults[0].value;
+            }
+
+            const hotdChannel = await client.channels.fetch(channelResults[0].value);            
+            const stanzaId = Math.floor(Math.random() * 164);
+            const nextHour = parseInt(results[entry].value.slice(0,2), 10);
+            const nextMinute = parseInt(results[entry].value.slice(3,5), 10);
+            
+            // Validate parsed time values
+            if (isNaN(nextHour) || isNaN(nextMinute) || nextHour < 0 || nextHour > 23 || nextMinute < 0 || nextMinute > 59) {
+                console.log("Invalid hotdtime format for guildId: " + results[entry].guildId + " value: " + results[entry].value);
+                continue;
+            }
+            
+            // Get current UTC time
+            const now = new Date();
+            const utcYear = now.getUTCFullYear();
+            const utcMonth = now.getUTCMonth();
+            const utcDate = now.getUTCDate();
+            
+            // Create target time in UTC (today at the configured hour:minute)
+            let fireOn = new Date(Date.UTC(utcYear, utcMonth, utcDate, nextHour, nextMinute, 0, 0));
+            
+            // If the configured time has already passed today, schedule for tomorrow
+            if (fireOn.getTime() <= now.getTime()) {
+                fireOn = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, nextHour, nextMinute, 0, 0));
+            }
+            
+            const fireTime = fireOn.getTime() - now.getTime();
+            console.log("Scheduling SotD for guildId: " + results[entry].guildId + " At " + results[entry].value + " UTC To channelId: " + channelResults[0].value + " with translation: " + translation + " Fire time: " + fireTime + " ms");
+            setTimeout((timeoutTranslation, timeoutStanzaId, timeoutHotdChannel) => {
+                sendHavamal(timeoutTranslation, timeoutStanzaId, timeoutHotdChannel);
+            }, fireTime, translation, stanzaId, hotdChannel);            
         }
-
-        const hotdChannel = await client.channels.fetch(channelResults[0].value);            
-        const stanzaId = Math.floor(Math.random() * 164);
-        const nextHour = parseInt(results[entry].value.slice(0,2), 10);
-        const nextMinute = parseInt(results[entry].value.slice(3,5), 10);
-        const fireOn = new Date();
-        const utcOffset = fireOn.getTimezoneOffset();
-        fireOn.setDate(fireOn.getDate() + 1);
-        fireOn.setHours(nextHour, nextMinute - utcOffset, 0, 0, 0);        
-        const now = new Date();
-        const fireTime = fireOn.getTime() - now.getTime();
-        console.log("Scheduling SotD for guildId: " + results[entry].guildId + " At " + results[entry].value + " To channelId: " + channelResults[0].value + " with translation: " + translation + " Fire time: " + fireTime);
-        setTimeout((timeoutTranslation, timeoutStanzaId, timeoutHotdChannel) => {
-            sendHavamal(timeoutTranslation, timeoutStanzaId, timeoutHotdChannel);
-        }, fireTime, translation, stanzaId, hotdChannel);            
+    } catch (err) {
+        console.error("Error in handleHotd:", err);
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
     }
 }
 
 setNextSOTDFire(getNextMidnight());
+handleHotd();
